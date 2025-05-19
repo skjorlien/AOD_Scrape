@@ -1,0 +1,23 @@
+
+
+* About the Data Product
+The MODIS (Moderate Resolution Imaging Spectroradiometer) instruments aboard the Aqua and Terra satellites are used to capture global remote sensing data.
+
+- Terra passes from north to south over the equator in the morning, while Aqua passes from south to north in the afternoon, providing complementary observations.
+- These satellites are part of NASA's Earth Observing System (EOS) and are designed for long-term monitoring of the Earth's land, oceans, and atmosphere.
+
+The =MCD19A2= product is a daily gridded aerosol optical depth (AOD) dataset derived from MODIS data. The prefix "MCD" indicates that it combines measurements from both Aqua and Terra to maximize spatial and temporal coverage and provide a more comprehensive daily view of aerosol conditions. This fusion helps improve the quality and availability of aerosol data compared to using a single satellite.
+
+There are surely other data products within https://ladsweb.modaps.eosdis.nasa.gov/search/ that would be worth looking at and easy to integrate with this scraper
+
+* Downloading
+=scrape_modis.py=
+builds a wget call that runs a subroutine. Simply provide product, bounding box, and date range, and you will download all .hdf files that meet the query.
+
+* Processing
+=process_hdf=
+will process all hdf files in the target directory. we need to for each date (set of files):
+1. generate a tif from the hdf, averaging over bands
+2. reproject the tif to lat/long
+3. merge all files of a given day.
+4. clean up the tmp directory
