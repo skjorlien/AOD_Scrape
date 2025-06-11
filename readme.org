@@ -14,6 +14,10 @@ There are surely other data products within https://ladsweb.modaps.eosdis.nasa.g
 =scrape_modis.py=
 builds a wget call that runs a subroutine. Simply provide product, bounding box, and date range, and you will download all .hdf files that meet the query.
 
+* Converting to tif
+We're going to extract band 1 from each of the files' subdataset titled "Optical_Depth_055"
+1. Ensure gdal is installed and that gdal_translate is available from 
+
 * Processing
 =process_hdf=
 will process all hdf files in the target directory. we need to for each date (set of files):

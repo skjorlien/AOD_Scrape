@@ -1,9 +1,5 @@
-from threading import Thread
-import requests
-from settings import BASE_DIR, RAW_DATA_DIR, ED_TOKEN
-from dataclasses import dataclass
+from config import RAW_DATA_DIR, ED_TOKEN
 from urllib.parse import quote
-import requests
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
 import time
@@ -30,24 +26,36 @@ class BBox:
     def __str__(self):
         return f"[BBOX]W{self.west} N{self.north} E{self.east} S{self.south}"
 
+    @classmethod
+    def from_str(cls, data):
+        try:
+            datalist = data.split(",")
+            if len(datalist) != 4:
+                raise ValueError
+            return cls(*datalist)
+        except ValueError:
+            print("Must provide a string of the form 'N,E,S,W'")
 
-class MonthDateRange:
-    def __init__(self, start: date):
+
+class DateRange:
+    def __init__(self, start: date, end: date):
         self.start = start
-        self.end = self._compute_end_date()
-
-    def _compute_end_date(self):
-        year = self.start.year + (self.start.month // 12)
-        month = self.start.month % 12 + 1
-        day = self.start.day
-        return date(year, month, day)
+        self.end = end
 
     def __str__(self):
         return f"{self.start}" if self.end == "" else f"{self.start}..{self.end}"
 
 
+def generate_month_daterange(start: date) -> DateRange:
+    year = start.year + (start.month // 12)
+    month = start.month % 12 + 1
+    day = start.day
+    end = date(year, month, day)
+    return DateRange(start, end)
+
+
 class AODUrl:
-    def __init__(self, bbox: BBox, daterange: MonthDateRange, product="MCD19A2", endpoint="archive"):
+    def __init__(self, bbox: BBox, daterange: DateRange, product="MCD19A2", endpoint="archive"):
         self.BASE_URL = "https://ladsweb.modaps.eosdis.nasa.gov/api/v2/"
         self.ENDPOINTS = {
             "products": "measurements/products",
@@ -94,24 +102,22 @@ def run_command(aodurl: AODUrl, output_dir: str, token: str) -> None:
         "--cut-dirs=3", aodurl.url, "-P", output_dir]
 
     subprocess.run(command)
+    return
 
 
-def scrape_month_of_data(year: int, month: int):
-    # WARNING: running this on a two day query downloaded 200 mb of data.
-    # recommend processing in batches.
+def scrape_month_of_data(bbox: BBox, year: int, month: int):
     token = ED_TOKEN
-    ca_box = BBox(32.0, -114.0, 42.0, -125.0)
     start_date = date(year, month, 1)
-    drange = MonthDateRange(start_date)
+    drange = generate_month_daterange(start_date)
 
-    url = AODUrl(ca_box, drange)
+    url = AODUrl(bbox, drange)
     run_command(url, RAW_DATA_DIR, token)
     return
 
 
-def scrape_year_of_data(year: int = 2019) -> None:
+def scrape_year_of_data(bbox: BBox, year: int = 2019) -> None:
     '''
-    fetch all files in a year. breaks up queries into 12 months date ranges to take advantage of multiprocessing
+    fetch all files in a year. breaks up queries into 12 months date ranges to take advantage of multithreading
     '''
 
     print(f"Fetching {year=} Data")
@@ -120,7 +126,7 @@ def scrape_year_of_data(year: int = 2019) -> None:
     months = range(1, 13)
 
     with ThreadPoolExecutor() as executor:
-        executor.map(lambda month: scrape_month_of_data(year, month), months) 
+        executor.map(lambda month: scrape_month_of_data(bbox, year, month), months)
 
     return
 
@@ -137,18 +143,30 @@ def main():
         print("Error: --year must be followed by an integer")
         sys.exit(1)
 
+    if "--bbox" in args:
+        try:
+            bbox_index = args.index("--bbox") + 1
+            bbox_str = args[bbox_index]
+            bbox = BBox.from_str(bbox_str)
+        except Exception as e:
+            print(f"{e}: --bbox must be followed by a comma-delimited string of floats of the form 'N,E,S,W'")
+
+    else:
+        print("No bounding box coordinates provided. Defaulting to California")
+        bbox = BBox(32.0, -114.0, 42.0, -125.0)
+
     if "--month" in args:
         try:
             month_index = args.index("--month") + 1
             month = int(args[month_index])
             if not (1 <= month <= 12):
                 raise ValueError
-            scrape_month_of_data(year, month)
+            scrape_month_of_data(bbox, year, month)
         except (IndexError, ValueError):
             print("Error: --month must be followed by an integer between 1 and 12")
             sys.exit(1)
     else:
-        scrape_year_of_data(year)
+        scrape_year_of_data(bbox, year)
 
 
 if __name__ == "__main__":
