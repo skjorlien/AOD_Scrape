@@ -53,14 +53,15 @@ Each day in our date range has multiple hdf file, each hdf file has multiple ban
 1. extract bands from each hdf
 2. average bands per file
 3. merge files per day
-4. reproject files to lat lon coordinate system.
+4. reproject files to lat lon coordinate system EPSG:4326
 
 I found the easiest way to do this was to do step 1 using the CLI tool ~gdal_translate~ and then do everything else in python.
 
-From the root project directory, (you may need to change permissions so =./convert_aod.sh= is executable.
+From the root project directory, (you may need to change permissions so =convert_aod.sh= is executable.
 
 Then: 
 #+begin_src shell
 ./convert_aod.sh
 #+end_src
 
+All resulting tifs will be saved to =./data/clean/=
