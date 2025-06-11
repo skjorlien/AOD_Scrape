@@ -1,3 +1,4 @@
+#+title: Scraping AOD Data
 
 
 * About the Data Product
@@ -10,18 +11,56 @@ The =MCD19A2= product is a daily gridded aerosol optical depth (AOD) dataset der
 
 There are surely other data products within https://ladsweb.modaps.eosdis.nasa.gov/search/ that would be worth looking at and easy to integrate with this scraper
 
-* Downloading
+* Set up
+** Create a venv from requirements.txt
+#+begin_src shell
+# from project root
+python -m venv ./venv
+source venv/bin/activate
+pip install -r requirements.txt
+#+end_src
+
+** GDAL
+You must have gdal installed on your computer. Specifically, we need to make sure ~gdal_translate~ is available from the command line. Check to see that it is installed:
+
+#+begin_src shell
+gdal_translate --version
+#+end_src
+
+** EarthData Token
+Create an account for https://ladsweb.modaps.eosdis.nasa.gov/.
+Once logged in, on the profile page, select Generate Token. Copy your token and create an environment variable called =ED_TOKEN=
+
+#+begin_src shell
+export ED_TOKEN="your token"
+#+end_src
+
+
+* Step 1: Downloading MCD19A2
 =scrape_modis.py=
-builds a wget call that runs a subroutine. Simply provide product, bounding box, and date range, and you will download all .hdf files that meet the query.
+With some tweaking you can download products aside from just MCD19A2, but we're interested in AOD.
 
-* Converting to tif
-We're going to extract band 1 from each of the files' subdataset titled "Optical_Depth_055"
-1. Ensure gdal is installed and that gdal_translate is available from 
+The scraper is set up as a command line tool that takes a year (required), month (optional), bounding box (optional). By default, with no month provided, it scrapes all months in the year provided. The bounding box by default is California, but you can set your own by =--bbox "N,E,S,W"= for example with all settings:
 
-* Processing
-=process_hdf=
-will process all hdf files in the target directory. we need to for each date (set of files):
-1. generate a tif from the hdf, averaging over bands
-2. reproject the tif to lat/long
-3. merge all files of a given day.
-4. clean up the tmp directory
+#+begin_src shell
+python -m scrape_modis --year 2024 --month 1 --bbox "37,-107,25,-93"
+#+end_src
+
+The above will download all files relevant to Texas in January 2024 and save .hdf files in =./data/raw/=
+
+* Step 2: Data Cleaning
+Each day in our date range has multiple hdf file, each hdf file has multiple bands. We need to:
+1. extract bands from each hdf
+2. average bands per file
+3. merge files per day
+4. reproject files to lat lon coordinate system.
+
+I found the easiest way to do this was to do step 1 using the CLI tool ~gdal_translate~ and then do everything else in python.
+
+From the root project directory, (you may need to change permissions so =./convert_aod.sh= is executable.
+
+Then: 
+#+begin_src shell
+./convert_aod.sh
+#+end_src
+

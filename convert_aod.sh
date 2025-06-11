@@ -1,31 +1,30 @@
 #!/bin/bash
 
 INPUT_DIR="./data/raw/archives"
-TMP_TIF_DIR="./data/raw/tifs"
+BAND_DIR="./data/tmp/bands"
 OUTPUT_DIR="./data/clean/daily"
 
-mkdir -p "$OUTPUT_DIR" "$TMP_DIF_DIR"
+mkdir -p "$BAND_DIR"
 
-# Step 1: convert all band 1 to tif
+echo "Extracting bands from HDF"
+
 for hdf in "$INPUT_DIR"/*.hdf; do
     filename=$(basename "$hdf" .hdf)
     subdataset="HDF4_EOS:EOS_GRID:${hdf}:grid1km:Optical_Depth_055"
-    output="$TMP_TIF_DIR/${filename}.tif"
-    echo "Processing $hdf → $output"
-    gdal_translate -b 1 "$subdataset" "$output"
+    band_count=$(gdalinfo "$subdataset" | grep -c "^Band ") 
+
+    band_inputs=""
+    for ((i=1; i<=band_count; i++)); do
+	band_tif="$BAND_DIR/${filename}_band${i}.tif"
+	gdal_translate -q -b $i "$subdataset" "$band_tif"
+	band_inputs="$band_inputs -A $i=$band_tif"
+    done
 done
 
+source venv/bin/activate
+cd src
+python -m process_hdf
+cd ..
+deactivate
 
-# Step 2: merge all same day tifs into one mosaic
-gdal_merge.py -o "merged tif"
-
-
-# Step 3: Reproject
-for tif in "$TMP_TIF_DIR"/*_merged.tif; do
-    input=$(basename "$tif" .tif)
-    output="$OUTPUT_DIR/${input}.tif"
-    gdalwarp -t_srs EPSG:4326 -r near "$tif" "$output"
-done
-
-# cleanup
-rm -rf "$TMP_TIF_DIR"
+rm -rf "./data/tmp"
