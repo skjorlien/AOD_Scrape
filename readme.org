@@ -64,4 +64,4 @@ Then:
 ./convert_aod.sh
 #+end_src
 
-All resulting tifs will be saved to =./data/clean/=
+All resulting tifs (one per day) will be saved to =./data/clean/=
